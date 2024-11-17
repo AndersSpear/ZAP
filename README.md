@@ -13,6 +13,7 @@ sudo apt-get install build-essential python-dev libnetfilter-queue-dev libffi-de
 ```
 
 Create a new python3.6 environment and install Python dependencies:
+PATRICK NOTE: 3.6 is ABSOLUTELY REQUIRED to do ANYTHING!
 ```
 sudo /path/to/python_environment/bin/python -m pip install -r requirements.txt
 ```
@@ -40,6 +41,7 @@ Optionally, to manually run/inspect the docker image to explore the image, run:
 sudo docker run -it base
 ```
 
+PATRICK NOTE: Harpoon was used in the DeResistor paper to geneate background traffic for the TRW
 Installing Harpoon: In docker experiments Harpoon is used to simulate normal background traffic. In folder
 /docker/harpoon, run:
 ```
@@ -56,6 +58,11 @@ You can run DeResistor against the 11  mock censors `censor1,..,censor11` define
 ```
 sudo /path/to/python_environment/bin/python evolve.py --censor censor3 --server forbidden.org --log debug --workers 1 --runs 1 --population 100 --generation 5 --jump 1
 ```
+
+PATRICK NOTE: Make sure to use the required `--real-time-detection True` to use the detection, since that's not documented ANYWHERE!!!
+
+PATRICK NOTE:  If you get something about "thefile" not found, go here: https://stackoverflow.com/questions/65410481/filenotfounderror-errno-2-no-such-file-or-directory-bliblibc-a
+
 * You can increase `--population` and `--generation` to reach fitter startegies
 * You can increase the jump size `--jump`
 * To include real-time IP-level detection of DeResitor, use `--real-time-detection`

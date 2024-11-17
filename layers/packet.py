@@ -271,11 +271,11 @@ class Packet():
         for layer in SUPPORTED_LAYERS:
             layer.reset_restrictions()
 
-    @staticmethod
+    @staticmethod # PATRICK: Python has static like why?  It doesn't accept slef...
     def restrict_fields(logger, filter_protocols, filter_fields, disable_fields):
         """
         Validates input arguments. Used by evolve.py to restrict the scope
-        of this evolution.
+        of this evolution. PATRICK: Allows disabling fields that can otherwise be modded
         """
         global SUPPORTED_LAYERS
 

@@ -4,7 +4,7 @@ import actions.utils
 import actions.tree
 
 
-class Strategy(object):
+class Strategy(object): # PATRICK: The "main" strategy class, denoted by strings
     def __init__(self, in_actions, out_actions, environment_id=None):
         self.in_actions = in_actions
         self.out_actions = out_actions

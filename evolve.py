@@ -203,7 +203,7 @@ def fitness_function(logger, population, ga_evaluator):
     Returns:
         list: Population post-evaluation
     """
-    if ga_evaluator:
+    if ga_evaluator: # PATRICK: Evaluate the entire population size, i.e. run the strats
         return ga_evaluator.evaluate(population)
 
     for ind in population:
@@ -405,8 +405,8 @@ def run_collection_phase(logger, ga_evaluator):
     Returns:
         str: ID of the test 'canary' strategy evaluated to do initial collection
     """
-    canary = generate_strategy(logger, 0, 0, 0, 0, None, disabled=[])
-    canary_id = ga_evaluator.canary_phase(canary)
+    canary = generate_strategy(logger, 0, 0, 0, 0, None, disabled=[]) # PATRICK: For the canary, use 0 for everything!!!
+    canary_id = ga_evaluator.canary_phase(canary) # PATRICK: Actually run the initial canary phase
     if not canary_id:
         return []
     return canary_id
@@ -514,16 +514,16 @@ def genetic_solve(logger, options, ga_evaluator):
         dict: Hall of fame of individuals
     """
     # Directory to save off each generation so evolution can be resumed
-    ga_generations_dir = os.path.join(actions.utils.RUN_DIRECTORY, "generations")
+    ga_generations_dir = os.path.join(actions.utils.RUN_DIRECTORY, "generations") # Adds generations to run
 
     hall = {}
     canary_id = None
     if ga_evaluator and not options["no-canary"]:
-        canary_id = run_collection_phase(logger, ga_evaluator)
+        canary_id = run_collection_phase(logger, ga_evaluator) # PATRICK: Dummy phase to get some baseline packets
     else:
         logger.info("Skipping initial collection phase.")
 
-    population = initialize_population(logger, options, canary_id, disabled=options["disable_action"])
+    population = initialize_population(logger, options, canary_id, disabled=options["disable_action"]) # PATRICK: It generates population_size strategies in bulk BEFORE running them
 
     try:
         offspring = []
@@ -539,16 +539,16 @@ def genetic_solve(logger, options, ga_evaluator):
 
             # Save current population pool
             filename = os.path.join(ga_generations_dir, "generation" + str(gen) + ".txt")
-            write_generation(filename, population)
+            write_generation(filename, population) # PATRICK: Flash generations to the file yay
 
             # To store the best individuals of this generation to print
             best_fit, best_ind = -10000, None
 
             # Mutation and crossover
             offspring = mutation_crossover(logger, population, hall, options)
-            offspring += elite_clones
+            offspring += elite_clones # PATRICK: Mutates the strats, keeps the population size
 
-            # Calculate fitness
+            # Calculate fitness - PATRICK: This is the thing that runs the model stuff, and it takes FOREVER
             offspring = fitness_function(logger, offspring, ga_evaluator)
 
             total_fitness = 0
@@ -710,7 +710,7 @@ def restrict_headers(logger, protos, filter_fields, disabled_fields):
         disabled_fields (str): Comma separated string of fields to disable
     """
     # Retrieve flag and protocol filters, and validate them
-    protos = protos.upper().split(",")
+    protos = protos.upper().split(",") # PATRICK: Looks like by default it's just TCP here
     if filter_fields:
         filter_fields = filter_fields.lower().split(",")
     if disabled_fields:
@@ -758,7 +758,7 @@ def driver(cmd):
         ga_evaluator = None
         if not args.no_eval:
             cmd += ["--output-directory", actions.utils.RUN_DIRECTORY]
-            ga_evaluator = evaluator.Evaluator(cmd, logger)
+            ga_evaluator = evaluator.Evaluator(cmd, logger) # PATRICK: This is our main evaluator, used for the strats
 
         # Check if the user only wanted to evaluate a single given strategy
         # If so, evaluate it, and exit
@@ -813,7 +813,7 @@ def driver(cmd):
             # Kick off the main genetic driver
             hall_of_fame = genetic_solve(logger, options, ga_evaluator)
         except KeyboardInterrupt:
-            logger.info("User shutdown requested.")
+            logger.info("User shutdown requested.") # PATRICK: Run until Ctrl-C (because signal 2 is too hard bro)
         if ga_evaluator:
             ga_evaluator.shutdown()
 

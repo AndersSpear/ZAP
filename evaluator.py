@@ -63,7 +63,7 @@ class Evaluator():
         if not self.external_client and not self.censor:
             self.args["external_server"] = True
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(('10.0.0.0', 0)) 
+            s.connect(('10.0.0.0', 0))  # PATRICK: Connect to something at port 0?
             self.client_ip = s.getsockname()[0]
         self.external_server = self.args["external_server"]
 
@@ -77,7 +77,7 @@ class Evaluator():
             self.args.update({'server': self.public_ip})
             command += ["--server", self.public_ip]
 
-        self.run_canary_phase = True
+        self.run_canary_phase = True # PATRICK: Canary = normal strat
 
         self.client_args = copy.deepcopy(self.args)
         self.server_args = copy.deepcopy(self.args)
@@ -112,8 +112,8 @@ class Evaluator():
         self.routing_ip = self.args.get("routing_ip", None)
         self.iface = self.args.get("iface", None)
         self.runs = self.args.get("runs", 1)
-        self.trw = self.args["real_time_detection"]
-        self.Geneva = self.args["Geneva"]
+        self.trw = self.args["real_time_detection"] # PATRICK: Do I actually have to make this an arg?  BRO PLEASE!
+        self.Geneva = self.args["Geneva"] # PATRICK: WHAT DOES THIS EVEN MEAN?
         if self.Geneva==False:
             self.alpha =0.5
             self.beta=0.5
@@ -121,7 +121,7 @@ class Evaluator():
             self.alpha =0
             self.beta=1
         print('TRW evaluation is :',self.trw)
-        self.fitness_by = self.args.get("fitness_by", "avg")
+        self.fitness_by = self.args.get("fitness_by", "avg") # PATRICK: Take average fitness lol
 
         self.forwarder = {}
         # If NAT options were specified to train as a middle box, set up the engine's
@@ -137,10 +137,11 @@ class Evaluator():
 
         # Legacy environments storage
         self.environments = []
-        if not os.path.exists(self.output_directory):
+        if not os.path.exists(self.output_directory): # PATRICK: Default is the timestamp I'm running it at
             os.mkdir(self.output_directory)
 
         # Only enable docker if we're going to use an internal censor
+        # PATRICK: For now, I'd recommend against it because yeah...
         self.use_docker = False
         if self.args["censor"]:
             import docker
@@ -149,7 +150,7 @@ class Evaluator():
             self.apiclient = docker.APIClient()
 
         self.logger = logger
-        self.local_model_namee = self.args.get("local_model")
+        self.local_model_namee = self.args.get("local_model") # PATRICK: May I ask why it's nameE with TWO Es?  BADDDDD!
         self.censor_model_namee = self.args.get("censor_model")
         #self.detector = joblib.load(os.path.join("ML detectors","rfc.joblib"),mmap_mode=None) ## to update later on according to the user's model
         self.train_detector = joblib.load(os.path.join("ML detectors",self.local_model_namee),mmap_mode=None)
@@ -162,16 +163,18 @@ class Evaluator():
        
         if self.random_jump:
             self.max_jump=self.jump
-        #self.alpha = 0.5
+        #self.alpha = 0.5 PATRICK: BRO THIS IS SO SILLY WHY HAVE IT HERE AT ALL IF IT'S JUST COMMENTED OUT!?!
         #self.beta = 0.5
         if self.trw:
             self.discarded=0
             self.to_discard=0
-            self.eta1 = 0.99/0.01
+            self.eta1 = 0.99/0.01 # PATRICK: This is the alpha beta crap they used to force 99% accuracy
+            # Literally run the stupid thing until it's accurate enough
             self.eta0 = (1-0.99)/(1-0.01)
             self.trw_ratio = (self.eta0+self.eta1)/2 # likelyhood ratio
             self.ratio_all=[]
             # theta0 and theta1 are defined with respect to the confusion matrix of the pre-trained ML model
+            # PATRICK: I'm glad it's "pre-trained"
             self.theta0 = 3146/(3146+10)
             self.theta1 = 10/(3146+9)  
             self.history = 0
@@ -188,7 +191,7 @@ class Evaluator():
             list: Detection probabilities
         """
         # Setup environment ids for each individual
-        self.assign_ids(ind_list)
+        self.assign_ids(ind_list) # ind_list is the list of strats
         self.detectability=[]
         
 
@@ -235,7 +238,7 @@ class Evaluator():
                     self.logger.exception("Failed to create evaluator environment - is docker running?")
                     return
 
-            self.worker(ind_list, "main", environment)
+            self.worker(ind_list, "main", environment) # PATRICK" Runs the algorithm here
 
         for ind in ind_list:
             self.read_fitness(ind)
@@ -390,7 +393,7 @@ class Evaluator():
                         self.ratio_all.append(self.trw_ratio)
                     # Checking for final decision
                     if self.trw_ratio <= self.eta0:
-                        raise Exception('Geneva is detected with an accuracy of {} after {} observations. Check ML detection history: {} \n {}'.format(0.99,len(self.y_preds),self.y_preds,self.ratio_all))
+                        raise Exception('Geneva is detected with an accuracy of {} after {} observations. Check ML detection history: {} \n {}'.format(0.99,len(self.y_preds),self.y_preds,self.ratio_all)) # PATRICK: LOL THE ACCURADY IS HARDCODED
                     elif self.trw_ratio >= self.eta1:
                         # reset ratio for currently benign sources
                         #self.trw_ratio = (self.eta0+self.eta1)/2
@@ -1136,7 +1139,7 @@ class Evaluator():
                         self.detectability.append(prob)
     #                    
     #                    
-                    ## TRW code for real-time evaluation
+                    ## TRW code for real-time evaluation - PATRICK: Runs the actual TRW stuff
                     if self.trw:
                         #if self.discarded==self.to_discard:
                         print("\nUpdating TRW ratio...\n")

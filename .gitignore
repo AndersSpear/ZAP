@@ -4,3 +4,4 @@ trials/*
 .vscode/
 workers/*
 !workers/example
+env/*
