@@ -75,7 +75,7 @@ class ClientPlugin(Plugin):
                     self.wait_for_censor(args.get("server"), port, eid, output_path)
 
                 # Run the plugin
-                fitness = self.run(args, logger, engine=eng)
+                fitness = self.run(args, logger, engine=eng) # PATRICK: Jumps to the http client bro http/client.py
                 logger.debug("Plugin client has finished.")
                 if use_engine:
                     fitness = actions.utils.punish_fitness(fitness, logger, eng)

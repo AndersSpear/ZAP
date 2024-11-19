@@ -74,10 +74,10 @@ class HTTPClient(ClientPlugin):
             res = requests.get(url, allow_redirects=False, timeout=3, headers=headers)
             logger.debug(res.text)
             # If we need to monitor for an injected response, check that here
-            if args.get("injected_http_contains") and args.get("injected_http_contains") in res.text:
+            if args.get("injected_http_contains") and args.get("injected_http_contains") in res.text: # PATRICK: Let's not use injection
                 fitness -= 90
             elif args.get("valid_http_contains"):
-                if args.get("valid_http_contains") in res.text:
+                if args.get("valid_http_contains") in res.text: # PATRICK: We tell it what the "valid" response is
                     # valid response found
                     fitness += 100
                 else:

@@ -307,7 +307,7 @@ class Evaluator():
                     if self.server_cls and not self.external_server and not self.act_as_middlebox:
                         server = self.start_server(self.server_args, environment, self.logger)
 
-                    fitness = self.run_client(self.client_args, environment, self.logger)
+                    fitness = self.run_client(self.client_args, environment, self.logger) # PATRICK: Plugin called here lol
 
                     if self.server_cls and not self.external_server and not self.act_as_middlebox:
                         self.stop_server(environment, server)
@@ -684,7 +684,7 @@ class Evaluator():
         self.logger.debug(" ".join(command))
         try:
             if actions.utils.get_console_log_level() == "debug":
-                subprocess.check_call(command, timeout=60)
+                subprocess.check_call(command, timeout=60) # PATRICK: Runs the damn strategy here lol
             else:
                 subprocess.check_call(command, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, timeout=60)
         except subprocess.CalledProcessError as exc:
