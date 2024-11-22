@@ -59,6 +59,8 @@ class Evaluator():
         
         self.external_client = self.args["external_client"]
         self.censor = self.args.get("censor")
+        # anders added
+        self.censor2 = self.args.get("censor2")
         # If there is no external client defined and no internal test setup, default --external-server to True
         if not self.external_client and not self.censor:
             self.args["external_server"] = True
@@ -884,8 +886,37 @@ class Evaluator():
         environment["client"]["ip"] = self.parse_ip(environment["client"]["container"], "eth0")
         self.client_ip = environment["client"]["ip"]
 
-        # If a training censor is requested, create a censor container
-        if self.censor:
+        # IF CENSOR2 ANDERS If a training censor is requested, create a censor container
+        if self.censor2:
+            environment["censor"] = self.initialize_base_container("censor_%s" % worker_id)
+            environment["censor2"] = self.initialize_base_container("censor_2_%s" % worker_id)
+            environment["server"] = self.initialize_base_container("server_%s" % worker_id)
+            environment["benign_server"] = self.initialize_base_container("benign_server_%s" % worker_id)
+            # Set up the routing
+            environment["server"]["ip"] = self.parse_ip(environment["server"]["container"], "eth0")
+            environment["benign_server"]["ip"] = self.parse_ip(environment["benign_server"]["container"], "eth0")
+            environment["censor"]["ip"] = self.parse_ip(environment["censor"]["container"], "eth0")
+            environment["censor2"]["ip"] = self.parse_ip(environment["censor2"]["container"], "eth0")
+            # anders server can talk to censor2, client can talk to censor, erm what the skibidi!
+            self._add_route(environment["server"]["container"], environment["censor2"]["ip"])
+            self._add_route(environment["censor"]["container"], environment["censor2"]["ip"])
+            #self._add_route(environment["censor2"]["container"], environment["censor"]["ip"])
+            self._add_route(environment["client"]["container"], environment["censor"]["ip"])
+
+            # Calculate the network base ("172.17.0.0")
+            network_base = ".".join(environment["server"]["ip"].split(".")[:2]) + ".0.0"
+
+            # Delete all other routes for the server and client to force communication through the censor
+            environment["server"]["container"].exec_run(["route", "del", "-net", network_base, "gw", "0.0.0.0", "netmask", "255.255.0.0", "dev", "eth0"], privileged=True)
+            environment["client"]["container"].exec_run(["route", "del", "-net", network_base, "gw", "0.0.0.0", "netmask", "255.255.0.0", "dev", "eth0"], privileged=True)
+
+            # Set up NAT on the censor
+            environment["censor"]["container"].exec_run(["iptables", "-t", "nat", "-A", "POSTROUTING", "-j", "MASQUERADE"], privileged=True)
+            environment["censor"]["container"].exec_run(["iptables", "-t", "nat", "-A", "POSTROUTING", "-j", "MASQUERADE"], privileged=True)
+
+
+        # If a training censor is requested (anders and a second censor is not  in use) , create a censor container
+        elif self.censor:
             environment["censor"] = self.initialize_base_container("censor_%s" % worker_id)
             environment["server"] = self.initialize_base_container("server_%s" % worker_id)
             environment["benign_server"] = self.initialize_base_container("benign_server_%s" % worker_id)
@@ -1249,7 +1280,7 @@ class Evaluator():
             if output.strip():
                 self.logger.debug("Cleaning up docker (%s)" % operation)
             for name in output.splitlines():
-                if any(key in name for key in ["client", "censor", "server", "benign"]):
+                if any(key in name for key in ["client", "censor", "censor2" "server", "benign"]):
                     try:
                         subprocess.check_output(['docker', operation, name])
                     except subprocess.CalledProcessError:
@@ -1347,6 +1378,26 @@ class Evaluator():
                 subprocess.check_call(["docker", "exec",  "--privileged",environment["censor"]["container"].name, "iptables", "-D", "FORWARD", "-j", "NFQUEUE", "-p", "tcp", "--dport", str(port), "--queue-num", str(queue_num)])
             except subprocess.CalledProcessError:
                 pass
+            if environment["censor2"]:
+                pid = self.get_pid(environment["censor2"]["container"])
+                while pid:
+                    #self.logger.info("%s killing process %s in %s" % (environment["id"], str(pid), environment["censor2"]["container"].name))
+                    try:
+                        subprocess.check_call(["docker", "exec", "--privileged", environment["censor2"]["container"].name, "kill", "-9", str(pid)])
+                    except subprocess.CalledProcessError:
+                        pass
+                    pid = self.get_pid(environment["censor2"]["container"])
+                    time.sleep(0.25)
+
+                try:
+                    subprocess.check_call(["docker", "exec", "--privileged", environment["censor2"]["container"].name, "iptables", "-D", "FORWARD", "-j", "NFQUEUE", "-p", "tcp", "--sport", str(port), "--queue-num", str(queue_num)])
+                except subprocess.CalledProcessError:
+                    pass
+                try:
+                    subprocess.check_call(["docker", "exec",  "--privileged",environment["censor2"]["container"].name, "iptables", "-D", "FORWARD", "-j", "NFQUEUE", "-p", "tcp", "--dport", str(port), "--queue-num", str(queue_num)])
+                except subprocess.CalledProcessError:
+                    pass
+
 
     def start_censor(self, environment, environment_id):
         """
@@ -1379,6 +1430,28 @@ class Evaluator():
             self.logger.exception("Failed out of start_censor")
         finally:
             self.logger.debug("Dockerized censor thread exiting")
+        if environment["censor2"]:
+            try:
+                self.logger.debug(" Starting censor2 %s with driver" % self.censor)
+                command = ["docker", "exec",  "--privileged", environment["censor2"]["container"].name,
+                        "python", "code/censors/censor_driver.py",
+                        "--censor", self.censor2,
+                        "--environment-id", environment_id,
+                        "--output-directory", self.output_directory,
+                        "--port", str(port),
+                        "--log", "debug",
+                        "--forbidden", self.args.get("bad_word", "ultrasurf"),
+                        "--queue", str(queue_num)]
+                self.exec_cmd(command)
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                # Docker containers were killed out from under us - likely means
+                # user forced a shutdown. Bail gracefully.
+                return False
+            except Exception:
+                self.logger.exception("Failed out of start_censor")
+            finally:
+                self.logger.debug("Dockerized censor thread exiting")
+
 
     def read_fitness(self, ind):
         """
@@ -1420,7 +1493,12 @@ class Evaluator():
         """
         if environment.get("docker"):
             self.shutdown_container(environment["client"]["container"])
-            if self.censor:
+            if self.censor2:
+                self.shutdown_container(environment["censor"]["container"])
+                self.shutdown_container(environment["censor2"]["container"])
+                self.shutdown_container(environment["server"]["container"])
+                self.shutdown_container(environment["benign_server"]["container"])
+            elif self.censor:
                 self.shutdown_container(environment["censor"]["container"])
                 self.shutdown_container(environment["server"]["container"])
                 self.shutdown_container(environment["benign_server"]["container"])
@@ -1517,6 +1595,8 @@ def get_arg_parser(single_use=False):
 
     docker_group = parser.add_argument_group('control aspects of docker-specific options')
     docker_group.add_argument('--censor', action='store', help='censor to test against.', choices=censors.censor_driver.get_censors())
+    # anders added
+    docker_group.add_argument('--censor2', action='store', help='second censor in the chain to test against (requires --censor to also be set).', choices=censors.censor_driver.get_censors())
     docker_group.add_argument('--workers', action='store', default=1, type=int, help='controls the number of docker containers the evaluator will use.')
     docker_group.add_argument('--bad-word', action='store', help="forbidden word to test with", default="ultrasurf")
     
